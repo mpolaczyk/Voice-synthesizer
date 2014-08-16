@@ -51,10 +51,8 @@ bool mergeSounds(string& word, const string& voice, set<string>& sounds)
 		}
 		 
     }
-    coutE(cmd);
     system(cmd.c_str()); // UNSECURE: Directory traversal
     cmd = "mv merge.wav " + voice + "/" + word + ".wav";
-    coutE(cmd);
     system(cmd.c_str()); // UNSECURE: Directory traversal
     return true;
 }
@@ -120,12 +118,13 @@ int main(int argc, char *argv[])
   
   // Play words
   coutBegin("Playing words");
+  string cmd;
   for(auto word : words)
   {
     coutE(word);
-    string cmd = "aplay " + voice + "/" + word + ".wav&";
-    system(cmd.c_str()); // UNSECURE: Directory traversal
+	cmd = cmd + "aplay " + voice + "/" + word + ".wav; "; 
   }
+  system(cmd.c_str()); // UNSECURE: Directory traversal
   coutEnd();                                                                            
   
   return EX_OK;                                            
