@@ -13,17 +13,51 @@
 
 using namespace std;
 
-bool createSound(const string& name)
-{
-  // TODO
-  // system(...); // UNSECURE: Directory traversal
-  return false;
-}
-
 inline void coutBegin(const string& text) { cout << "=== " << text << " ===" << endl; }
 inline void coutEnd() { cout << endl; }
 inline void coutE(const string& text) { cout << ' ' << text; }
-inline void coutH() { cout << "Format: -voice <voice> -text \"<text>\"" << endl << "Where <voice> is directory name with wav files and <text> is a text to process." << endl; }
+inline void coutH() { cout << "Format: --voice <voice> --text \"<text>\"" << endl << "Where <voice> is directory name with wav files and <text> is a text to process." << endl; }
+
+bool mergeSounds(string& word, const string& voice, set<string>& sounds)
+{
+    string latestKnown = string(1, word[0]);
+    string cmd = "./wavmerge ";
+    cout << endl;
+	
+    for ( int i = 0 ; i < word.length(); i++)
+    {
+		string current = latestKnown;
+		bool currentExists = sounds.find(current) != sounds.end();
+		
+		string next = "";
+		bool nextExists = false;
+	
+		if(i+1 < word.length())
+		{
+			next = latestKnown + string(1, word[i+1]);
+			nextExists = sounds.find(next) != sounds.end();
+		}
+		
+		if(!currentExists) { return false; }
+		else if(currentExists && nextExists)
+		{		
+			latestKnown = next;
+			continue;
+		}
+		else if(currentExists && !nextExists)
+		{
+			cmd = cmd + " " + voice + "/" + current + ".wav";
+			latestKnown = string(1,word[i+1]);
+		}
+		 
+    }
+    coutE(cmd);
+    system(cmd.c_str()); // UNSECURE: Directory traversal
+    cmd = "mv merge.wav " + voice + "/" + word + ".wav";
+    coutE(cmd);
+    system(cmd.c_str()); // UNSECURE: Directory traversal
+    return true;
+}
 
 int main(int argc, char *argv[])
 {
@@ -78,7 +112,7 @@ int main(int argc, char *argv[])
     if (sounds.find(word) == sounds.end())
     {
       coutE(word);
-      createSound(word);
+      if (!mergeSounds(word, voice, sounds)) { return EX_OK; }
       sounds.insert(word);  
     }
   }              
@@ -89,8 +123,8 @@ int main(int argc, char *argv[])
   for(auto word : words)
   {
     coutE(word);
-    string cmd = "aplay " + voice + "\\" + word + ".wav&";
-    //system(cmd.c_str()); // UNSECURE: Directory traversal
+    string cmd = "aplay " + voice + "/" + word + ".wav&";
+    system(cmd.c_str()); // UNSECURE: Directory traversal
   }
   coutEnd();                                                                            
   
