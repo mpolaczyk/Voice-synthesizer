@@ -10,6 +10,7 @@
 #include <iterator>
 #include <sstream>
 #include <sysexits.h>
+#include <exception>
 
 using namespace std;
 
@@ -47,85 +48,137 @@ bool mergeSounds(string& word, const string& voice, set<string>& sounds)
 		else if(currentExists && !nextExists)
 		{
 			cmd = cmd + " " + voice + "/" + current + ".wav";
-			latestKnown = string(1,word[i+1]);
+			latestKnown = string(1,word[i+1]); // at will throw exception when [] returns \0
 		}
 		 
     }
-    system(cmd.c_str()); // UNSECURE: Directory traversal
+	cout << endl << cmd << endl;
+    system(cmd.c_str()); // UNSECURE: Directory traversal / Command Injection
     cmd = "mv merge.wav " + voice + "/" + word + ".wav";
-    system(cmd.c_str()); // UNSECURE: Directory traversal
+    system(cmd.c_str()); // UNSECURE: Directory traversal / Command Injection
     return true;
+}
+
+bool tryParseParams(string& voice, string& text, int& argc, char *argv[])
+{
+	// Check params
+	if(argc != 5 || strcmp(argv[1], "--voice") != 0 || strcmp(argv[3], "--text") != 0) { return false; }
+  
+	// Configure
+	voice = argv[2];
+	text = argv[4];
+	return true;
+}
+
+bool loadVoice(string& voice, set<string>& sounds)
+{
+    // Get all waves from directory and save to file
+    coutBegin("Looking for sounds of: '" + voice + "'");
+    
+	string cmd = "find " + voice + " -type f -name \"*.wav\" -exec basename {} .wav \\; > " + voice + "/sounds";     
+	system(cmd.c_str()); // UNSECURE: Directory traversal / Command Injection
+        
+	ifstream soundsFile(voice + "/sounds", ifstream::in);
+	if (soundsFile.is_open())
+	{
+		// Each line has sound name, store it
+		string line;
+		while (getline(soundsFile, line))
+		{
+			coutE(line);
+			sounds.insert(line);
+		}
+		soundsFile.close();
+	}
+	
+	bool isEmpty = sounds.empty();
+	if(isEmpty) { coutE("No sounds available..."); }
+    
+    coutEnd();
+	
+	return !isEmpty;
+}
+
+void splitTextIntoWords(string& text, vector<string>& words)
+{
+	// Split text into words
+	coutBegin("Parsing text into words");
+	
+	istringstream iss(text);
+	string word;
+	while (iss >> word) 
+	{ 
+		coutE(word);
+		words.push_back(word);
+	}
+	
+	coutEnd();
+}
+
+bool createWords(string& voice, vector<string>& words, set<string>& sounds)
+{
+	// Create wave files for words
+	coutBegin("Creating word sounds");
+	for(auto word : words)
+	{
+		if (sounds.find(word) == sounds.end())
+		{
+			coutE(word);
+			if (!mergeSounds(word, voice, sounds)) { return false; }
+			sounds.insert(word);  
+		}
+	}          
+	coutEnd();
+	return true;
+}
+
+void playWords(string& voice, vector<string>& words)
+{
+	// Play words
+	coutBegin("Playing words");
+	string cmd;
+	for(auto word : words)
+	{
+		coutE(word);
+		cmd = cmd + "aplay " + voice + "/" + word + ".wav; "; 
+	}
+	system(cmd.c_str()); // UNSECURE: Directory traversal / Command Injection
+	coutEnd();
 }
 
 int main(int argc, char *argv[])
 {
-  // Check params
-  if(argc != 5 || strcmp(argv[1], "--voice") != 0 || strcmp(argv[3], "--text") != 0) { coutH(); return EX_USAGE; }
+	string voice;
+	string text;
+	set<string> sounds;
+	vector<string> words;
+	
+	try
+	{
+		if(!tryParseParams(voice, text, argc, argv)) 
+		{ 
+			coutH();
+			return EX_USAGE;
+		}
   
-  // Configure
-  string voice = argv[2];
-  string text = argv[4];
-        
-  // Get all waves from directory and save to file
-  coutBegin("Looking for sounds of: '" + voice + "'");
-  set<string> sounds;
-  {
-    string cmd = "find " + voice + " -type f -name \"*.wav\" -exec basename {} .wav \\; > " + voice + "/sounds";     
-    system(cmd.c_str()); // UNSECURE: Directory traversal
- 
-    ifstream soundsFile(voice + "/sounds", ifstream::in);
-    if (soundsFile.is_open())
-    {
-      // Each line has sound name, store it
-      string line;
-      while (getline(soundsFile, line))
-      {
-        coutE(line);
-        sounds.insert(line);
-      }
-      soundsFile.close();
-    }
-    if(sounds.empty()) { coutE("No sounds available..."); coutEnd(); return EX_OK; }              
-  }
-  coutEnd();
+		if(!loadVoice(voice, sounds))
+		{
+			return EX_OK;
+		}
   
-  // Split text into words
-  coutBegin("Parsing text into words");
-  vector<string> words;
-  {
-    istringstream iss(text);
-    string word;
-    while (iss >> word) 
-    { 
-      coutE(word);
-      words.push_back(word);
-    }
-  }                                                                                                        
-  coutEnd();
+		splitTextIntoWords(text, words);
+		
+		if(!createWords(voice, words, sounds))
+		{
+			return EX_OK;
+		}
   
-  // Create wave files for words
-  coutBegin("Creating word sounds");
-  for(auto word : words)
-  {
-    if (sounds.find(word) == sounds.end())
-    {
-      coutE(word);
-      if (!mergeSounds(word, voice, sounds)) { return EX_OK; }
-      sounds.insert(word);  
-    }
-  }              
-  coutEnd();
-  
-  // Play words
-  coutBegin("Playing words");
-  string cmd;
-  for(auto word : words)
-  {
-    coutE(word);
-	cmd = cmd + "aplay " + voice + "/" + word + ".wav; "; 
-  }
-  system(cmd.c_str()); // UNSECURE: Directory traversal
-  coutEnd();                                                                            
-  
-  return EX_OK;                                            
+		playWords(voice, words);
+  	}
+	catch(exception& e)
+	{
+		cout << endl << endl << "Exception: " << e.what() << endl;
+	}
+	
+	return EX_OK;                 
 }
