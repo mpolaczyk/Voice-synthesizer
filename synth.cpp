@@ -19,15 +19,28 @@ inline void coutEnd() { cout << endl; }
 inline void coutE(const string& text) { cout << ' ' << text; }
 inline void coutH() { cout << "Format: --voice <voice> --text \"<text>\"" << endl << "Where <voice> is directory name with wav files and <text> is a text to process." << endl; }
 
+void getUTF8Char(const int& i, const string& word, string& outChar, int& outLen)
+{
+	int num = 0;
+	int position = 7;
+	while ((word[i] & (1 << position)) == (1 << position)) 
+	{ 
+		num++; 
+		position--;
+	}
+	
+	outLen = (num == 0 ? 1 : num);
+	outChar = word.substr(i, outLen);
+}
+
 bool mergeSounds(string& word, const string& voice, set<string>& sounds)
 {
-    string latestKnown = string(1, word[0]);
+    string current = string(1, word[0]);
     string cmd = "./wavmerge ";
     cout << endl;
 	
     for ( int i = 0 ; i < word.length(); i++)
     {
-		string current = latestKnown;
 		bool currentExists = sounds.find(current) != sounds.end();
 		
 		string next = "";
@@ -35,20 +48,20 @@ bool mergeSounds(string& word, const string& voice, set<string>& sounds)
 	
 		if(i+1 < word.length())
 		{
-			next = latestKnown + string(1, word[i+1]);
+			next = current + string(1, word[i+1]);
 			nextExists = sounds.find(next) != sounds.end();
 		}
 		
 		if(!currentExists) { return false; }
 		else if(currentExists && nextExists)
 		{		
-			latestKnown = next;
+			current = next;
 			continue;
 		}
 		else if(currentExists && !nextExists)
 		{
 			cmd = cmd + " " + voice + "/" + current + ".wav";
-			latestKnown = string(1,word[i+1]); // at will throw exception when [] returns \0
+			current = string(1,word[i+1]); // at will throw exception when [] returns \0
 		}
 		 
     }
@@ -152,7 +165,7 @@ int main(int argc, char *argv[])
 	string text;
 	set<string> sounds;
 	vector<string> words;
-	
+		
 	try
 	{
 		if(!tryParseParams(voice, text, argc, argv)) 
@@ -180,5 +193,5 @@ int main(int argc, char *argv[])
 		cout << endl << endl << "Exception: " << e.what() << endl;
 	}
 	
-	return EX_OK;                 
+	return EX_OK;           
 }
