@@ -43,42 +43,50 @@ bool mergeSounds(string& word, const string& voice, set<string>& sounds)
 	// Next combination
 	string next = "";
 	
-    for ( int i = 0 ; i < word.length(); i++)
+	int di;
+	
+    for ( int i = 0 ; i <= word.length(); i+=di)
     {
-		// If current combination is empty, get first character
+		di = 0;
+		
+		// If current combination is empty, get first not processed character
 		if (current == "")
 		{
-			current = string(1, word[i]);
+			getUTF8Char(i, word, current, di);
 		}
-				
-		// If we have more characters
-		if(i+1 < word.length())
-		{
-			// Build next combination
-			next = current + string(1, word[i+1]);
-		}
-		else
-		{
-			next = "";
-		}
-		
+			
 		// Check if current combination exists
-		if(sounds.find(current) != sounds.end())
+		if(current != "" && sounds.find(current) != sounds.end())
 		{
+			// If we have more characters
+			int din = 0;
+			if(i+di < word.length())
+			{
+				// Build next combination
+				string x;
+				getUTF8Char(i+di, word, x, din);
+				next = current + x;
+			}
+			else
+			{
+				next = "";
+			}
+		
 			// Check if next combination exists
-			if(next != "" && sounds.find(next) != sounds.end())
+			if(din > 0 && sounds.find(next) != sounds.end())
 			{
 				// Save next combination to current and continue
 				current = next;
+				di += din;
 			}
 			else
 			{
 				// Send combination to merge and continue
 				cmd = cmd + " " + voice + "/" + current + ".wav";
 				current = "";
+				next = "";
 			}		
 		}
-		else { cout << "dupa" << endl; return false; }
 		 
     }
 	cout << endl << cmd << endl;
