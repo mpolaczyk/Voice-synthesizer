@@ -35,34 +35,50 @@ void getUTF8Char(const int& i, const string& word, string& outChar, int& outLen)
 
 bool mergeSounds(string& word, const string& voice, set<string>& sounds)
 {
-    string current = string(1, word[0]);
     string cmd = "./wavmerge ";
     cout << endl;
 	
+	// Current combination
+	string current = "";
+	// Next combination
+	string next = "";
+	
     for ( int i = 0 ; i < word.length(); i++)
     {
-		bool currentExists = sounds.find(current) != sounds.end();
-		
-		string next = "";
-		bool nextExists = false;
-	
+		// If current combination is empty, get first character
+		if (current == "")
+		{
+			current = string(1, word[i]);
+		}
+				
+		// If we have more characters
 		if(i+1 < word.length())
 		{
+			// Build next combination
 			next = current + string(1, word[i+1]);
-			nextExists = sounds.find(next) != sounds.end();
+		}
+		else
+		{
+			next = "";
 		}
 		
-		if(!currentExists) { return false; }
-		else if(currentExists && nextExists)
-		{		
-			current = next;
-			continue;
-		}
-		else if(currentExists && !nextExists)
+		// Check if current combination exists
+		if(sounds.find(current) != sounds.end())
 		{
-			cmd = cmd + " " + voice + "/" + current + ".wav";
-			current = string(1,word[i+1]); // at will throw exception when [] returns \0
+			// Check if next combination exists
+			if(next != "" && sounds.find(next) != sounds.end())
+			{
+				// Save next combination to current and continue
+				current = next;
+			}
+			else
+			{
+				// Send combination to merge and continue
+				cmd = cmd + " " + voice + "/" + current + ".wav";
+				current = "";
+			}		
 		}
+		else { cout << "dupa" << endl; return false; }
 		 
     }
 	cout << endl << cmd << endl;
