@@ -11,6 +11,7 @@
 #include <sstream>
 #include <sysexits.h>
 #include <exception>
+#include <unistd.h>
 
 using namespace std;
 
@@ -183,8 +184,23 @@ void playWords(string& voice, vector<string>& words)
 	coutEnd();
 }
 
+string get_selfpath() {
+    char buff[1024];
+    ssize_t len = ::readlink("/proc/self/exe", buff, sizeof(buff)-1);
+    if (len != -1) {
+      buff[len] = '\0';
+      return string(buff) - "synth";
+    } else {
+     /* handle error condition */
+    }
+}
+
 int main(int argc, char *argv[])
 {
+	cout << getenv("PWD") << endl;
+	cout << get_selfpath() << endl;
+	
+	//chdir();
 	string voice;
 	string text;
 	set<string> sounds;
