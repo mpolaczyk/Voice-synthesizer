@@ -8,7 +8,7 @@ app = web.application(urls, globals())
 
 class sayhello:
     def GET(self, voice):
-        return call(["./bin/synth", "--voice", "./bin/" + voice, "--text", "o as d"])
+        return call(["./synth", "--voice", voice, "--text", "witaj"])
 
 if __name__ == "__main__":
     app.run()
