@@ -49,7 +49,7 @@ void getUTF8Char(const int& i, const string& word, string& outChar, int& outLen)
 
 bool mergeSounds(string& word, const string& voice, set<string>& sounds)
 {
-    string cmd = get_selfpath() + "wavmerge ";
+    string cmd = "./wavmerge ";
     cout << endl;
 	
 	// Current combination
@@ -105,7 +105,7 @@ bool mergeSounds(string& word, const string& voice, set<string>& sounds)
     }
 	cout << endl << cmd << endl;
     system(cmd.c_str()); // UNSECURE: Directory traversal / Command Injection
-    cmd = "mv " + get_selfpath() + "merge.wav " + get_selfpath() + voice + "/" + word + ".wav";
+    cmd = "mv merge.wav " + voice + "/" + word + ".wav";
     system(cmd.c_str()); // UNSECURE: Directory traversal / Command Injection
     return true;
 }
@@ -126,10 +126,10 @@ bool loadVoice(string& voice, set<string>& sounds)
     // Get all waves from directory and save to file
     coutBegin("Looking for sounds of: '" + voice + "'");
     
-	string cmd = get_selfpath() + "find " + voice + " -type f -name \"*.wav\" -exec basename {} .wav \\; > " + voice + "/sounds";     
+	string cmd = "find " + voice + " -type f -name \"*.wav\" -exec basename {} .wav \\; > " + voice + "/sounds";     
 	system(cmd.c_str()); // UNSECURE: Directory traversal / Command Injection
         
-	ifstream soundsFile(get_selfpath() + voice + "/sounds", ifstream::in);
+	ifstream soundsFile(voice + "/sounds", ifstream::in);
 	if (soundsFile.is_open())
 	{
 		// Each line has sound name, store it
@@ -191,7 +191,7 @@ void playWords(string& voice, vector<string>& words)
 	for(auto word : words)
 	{
 		coutE(word);
-		cmd = cmd + "aplay " + get_selfpath() + voice + "/" + word + ".wav; "; 
+		cmd = cmd + "aplay " + voice + "/" + word + ".wav; "; 
 	}
 	system(cmd.c_str()); // UNSECURE: Directory traversal / Command Injection
 	coutEnd();
@@ -199,6 +199,8 @@ void playWords(string& voice, vector<string>& words)
 
 int main(int argc, char *argv[])
 {
+	cout << get_selfpath() << endl;
+	
 	string voice;
 	string text;
 	set<string> sounds;
