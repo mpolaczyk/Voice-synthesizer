@@ -19,11 +19,21 @@ using namespace std;
 inline void coutBegin(const string& text) { cout << "=== " << text << " ===" << endl; }
 inline void coutEnd() { cout << endl; }
 inline void coutE(const string& text) { cout << ' ' << text; }
-inline void coutH() { cout << "Format: --voice <voice> --text \"<text>\"" << endl << "Where <voice> is directory name with wav files and <text> is a text to process." << endl; }
+inline void coutH() 
+{ 
+	cout << "Usage: " << endl <<
+		"--voice <voice> --text \"<text>\"" << endl <<
+		"Where <voice> is directory name with wav files and <text> is a text to process." << endl <<
+		"--listv" << endl <<
+		"To list available voices";
+}
 
-string selfpath;
+bool modeSay = false;
+bool modeListVoices = false;
 
-string get_selfpath()
+string selfPath;
+
+string get_selfPath()
 {
     char buff[1024];
     ssize_t len = ::readlink("/proc/self/exe", buff, sizeof(buff)-1);
@@ -52,7 +62,7 @@ void getUTF8Char(const int& i, const string& word, string& outChar, int& outLen)
 
 bool mergeSounds(string& word, const string& voice, set<string>& sounds)
 {
-    string cmd = selfpath + "wavmerge ";
+    string cmd = selfPath + "wavmerge ";
     cout << endl;
 	
 	// Current combination
@@ -99,7 +109,7 @@ bool mergeSounds(string& word, const string& voice, set<string>& sounds)
 			else
 			{
 				// Send combination to merge and continue
-				cmd = cmd + " " + selfpath + voice + "/" + current + ".wav";
+				cmd = cmd + " " + selfPath + voice + "/" + current + ".wav";
 				current = "";
 				next = "";
 			}		
@@ -109,7 +119,7 @@ bool mergeSounds(string& word, const string& voice, set<string>& sounds)
 	cout << endl << cmd << endl;
     system(cmd.c_str()); // UNSECURE: Directory traversal / Command Injection
 	// merge.wav lands in working directory, move this to bin
-    cmd = "mv merge.wav " + selfpath + voice + "/" + word + ".wav";
+    cmd = "mv merge.wav " + selfPath + voice + "/" + word + ".wav";
     system(cmd.c_str()); // UNSECURE: Directory traversal / Command Injection
     return true;
 }
@@ -117,12 +127,46 @@ bool mergeSounds(string& word, const string& voice, set<string>& sounds)
 bool tryParseParams(string& voice, string& text, int& argc, char *argv[])
 {
 	// Check params
-	if(argc != 5 || strcmp(argv[1], "--voice") != 0 || strcmp(argv[3], "--text") != 0) { return false; }
+	if(argc == 2)
+	{
+		modeListVoices = (strcmp(argv[1], "--listv") == 0);
+		return modeListVoices;
+	}
+	else if(argc == 5)
+	{
+		modeSay = (strcmp(argv[1], "--voice") == 0 || strcmp(argv[3], "--text") == 0);
+		if (modeSay)
+		{
+			voice = argv[2];
+			text = argv[4];
+			return true;
+		}
+	}
   
-	// Configure
-	voice = argv[2];
-	text = argv[4];
-	return true;
+	return false;
+}
+
+bool listVoices()
+{
+	// Get all voices (directories)
+	string cmd = "find " + selfPath + " -type d > " + selfPath + "/voices";
+	system(cmd.c_str()); // UNSECURE: Directory traversal / Command Injection
+	
+	ifstream voicesFile(selfPath + "/voices", ifstream::in);
+	if (voicesFile.is_open())
+	{
+		// Each line has sound name, store it
+		string line;
+		int x = selfPath.length();
+		while (getline(voicesFile, line))
+		{
+			if(line.length() > 0)
+			{
+				cout << line.substr(x, line.length() - x) << endl;
+			}
+		}
+		voicesFile.close();
+	}
 }
 
 bool loadVoice(string& voice, set<string>& sounds)
@@ -130,10 +174,10 @@ bool loadVoice(string& voice, set<string>& sounds)
     // Get all waves from directory and save to file
     coutBegin("Looking for sounds of: '" + voice + "'");
     
-	string cmd = "find " + selfpath + voice + " -type f -name \"*.wav\" -exec basename {} .wav \\; > " + selfpath + voice + "/sounds";     
+	string cmd = "find " + selfPath + voice + " -type f -name \"*.wav\" -exec basename {} .wav \\; > " + selfPath + voice + "/sounds";     
 	system(cmd.c_str()); // UNSECURE: Directory traversal / Command Injection
         
-	ifstream soundsFile(selfpath + voice + "/sounds", ifstream::in);
+	ifstream soundsFile(selfPath + voice + "/sounds", ifstream::in);
 	if (soundsFile.is_open())
 	{
 		// Each line has sound name, store it
@@ -195,20 +239,22 @@ void playWords(string& voice, vector<string>& words)
 	for(auto word : words)
 	{
 		coutE(word);
-		cmd = cmd + "aplay " + selfpath + voice + "/" + word + ".wav; "; 
+		cmd = cmd + "aplay " + selfPath + voice + "/" + word + ".wav; "; 
 	}
 	system(cmd.c_str()); // UNSECURE: Directory traversal / Command Injection
 	coutEnd();
 }
 
+
+	
 int main(int argc, char *argv[])
 {
-	selfpath = get_selfpath();
-	cout << selfpath << endl;
+	selfPath = get_selfPath();
 	
 	string voice;
 	string text;
 	set<string> sounds;
+	set<string> voices;
 	vector<string> words;
 		
 	try
@@ -218,20 +264,27 @@ int main(int argc, char *argv[])
 			coutH();
 			return EX_USAGE;
 		}
-  
-		if(!loadVoice(voice, sounds))
+
+		if(modeListVoices)
 		{
-			return EX_OK;
+			listVoices();
 		}
-  
-		splitTextIntoWords(text, words);
-		
-		if(!createWords(voice, words, sounds))
+		else if(modeSay)
 		{
-			return EX_OK;
+			if(!loadVoice(voice, sounds))
+			{
+				return EX_OK;
+			}
+	  
+			splitTextIntoWords(text, words);
+			
+			if(!createWords(voice, words, sounds))
+			{
+				return EX_OK;
+			}
+	  
+			playWords(voice, words);
 		}
-  
-		playWords(voice, words);
   	}
 	catch(exception& e)
 	{
